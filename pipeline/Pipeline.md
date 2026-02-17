@@ -16,7 +16,7 @@ Realizar un análisis exploratorio completo sobre un dataset combinado de conten
 
 ---
 
-## 🔎 Dataset
+##  Dataset
 
 Se trabajó con un dataset resultante de la intersección entre:
 
@@ -37,28 +37,28 @@ Variables utilizadas:
 
 ---
 
-## 🧹 Preprocesamiento Realizado
+##  Preprocesamiento Realizado
 
-### ✔ Manejo de valores faltantes
+###  Manejo de valores faltantes
 
 - Eliminación de filas sin target  
 - Imputación por mediana en variables numéricas  
 - Imputación categórica con etiqueta `"unknown"`  
 
-### ✔ Feature Engineering
+###  Feature Engineering
 
 - Extracción numérica de duración (`duration_num`)  
 - Transformación de la variable objetivo en formato multietiqueta  
 - Codificación mediante `MultiLabelBinarizer`  
 
-### ✔ Separación de Variables
+###  Separación de Variables
 
 - Definición de `X` (features)  
 - Definición de `y` (target multietiqueta)  
 
 ---
 
-## 📊 Análisis Exploratorio (EDA)
+##  Análisis Exploratorio (EDA)
 
 Se realizaron:
 
