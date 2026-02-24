@@ -1,86 +1,139 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import os
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, MultiLabelBinarizer
+from sklearn.model_selection import train_test_split
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
 
-df = pd.read_csv("netflix_merged_intersection.csv")
+
+# ── Transformer personalizado para agrupar países poco frecuentes ──────────────
+class CountryGrouper(BaseEstimator, TransformerMixin):
+    """Agrupa en 'others' los países que aparecen una sola vez en el conjunto."""
+
+    def fit(self, X, y=None):
+        # X es un array 2D (salida de ColumnTransformer), tomamos la columna country
+        # Pero lo usaremos directamente sobre la Series antes del pipeline
+        return self
+
+    def transform(self, X, y=None):
+        return X
+
+
+def group_rare_countries(series: pd.Series, min_count: int = 1) -> pd.Series:
+    """
+    Reemplaza por 'others' los valores cuya frecuencia sea <= min_count.
+    Por defecto agrupa los que aparecen exactamente 1 vez.
+    """
+    counts = series.value_counts()
+    rare = counts[counts <= min_count].index
+    return series.replace(rare, "others")
+
+
+# ── Función principal que carga, limpia y divide el dataset ───────────────────
+def load_and_prepare(
+    filepath: str = "netflix_merged_intersection.csv",
+    test_size: float = 0.20,
+    val_size: float = 0.20,
+    random_state: int = 42,
+):
+    """
+    Retorna:
+        X_train, X_val, X_test  → DataFrames de características
+        y_train, y_val, y_test  → arrays MultiLabel binarizados
+        preprocessor            → ColumnTransformer (sin ajustar)
+        mlb                     → MultiLabelBinarizer ajustado
+    """
+
+    # ── 1. Carga ───────────────────────────────────────────────────────────────
+    df = pd.read_csv(filepath)
+
+    # ── 2. Limpieza ────────────────────────────────────────────────────────────
+    # Eliminar filas donde director es "Not Given"
+    df = df[df["director"] != "Not Given"].copy()
+
+    # Seleccionar columnas relevantes
+    df = df[
+        [
+            "type_base",
+            "country",
+            "release_year",
+            "rating",
+            "duration",
+            "listed_in",
+            "imdb_score",
+            "imdb_votes",
+            "age_certification",
+        ]
+    ].copy()
+
+    # Manejo de NaNs
+    df = df.dropna(subset=["listed_in"])
+    df["imdb_score"] = df["imdb_score"].fillna(df["imdb_score"].median())
+    df["imdb_votes"] = df["imdb_votes"].fillna(0)
+    df["country"] = df["country"].fillna("unknown")
+    df["age_certification"] = df["age_certification"].fillna("unknown")
+
+    # Convertir duración a número
+    df["duration_num"] = df["duration"].str.extract(r"(\d+)").astype(float)
+    df.drop(columns=["duration"], inplace=True)
+
+    # ── 3. Agrupar países con frecuencia <= 1 en "others" ─────────────────────
+    df["country"] = group_rare_countries(df["country"], min_count=1)
+
+    # ── 4. Target (multilabel) ────────────────────────────────────────────────
+    df["listed_in"] = (
+        df["listed_in"]
+        .str.lower()
+        .str.strip()
+        .str.split(",")
+        .apply(lambda tags: [t.strip() for t in tags])
+    )
+
+    mlb = MultiLabelBinarizer()
+    y = mlb.fit_transform(df["listed_in"])
+
+    # ── 5. Features ───────────────────────────────────────────────────────────
+    X = df.drop(columns=["listed_in"])
+
+    numeric_cols = ["release_year", "imdb_score", "imdb_votes", "duration_num"]
+    categorical_cols = ["type_base", "rating", "age_certification", "country"]
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", StandardScaler(), numeric_cols),
+            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical_cols),
+        ]
+    )
+
+    # ── 6. Split 60 / 20 / 20 ────────────────────────────────────────────────
+    # Primero separamos el 60% de entrenamiento del 40% restante
+    X_train, X_temp, y_train, y_temp = train_test_split(
+        X, y,
+        test_size=0.40,          # 40% temporal (val + test)
+        random_state=random_state,
+    )
+
+    # Del 40% restante, 50% es validación y 50% es test → cada uno = 20% del total
+    X_val, X_test, y_val, y_test = train_test_split(
+        X_temp, y_temp,
+        test_size=0.50,
+        random_state=random_state,
+    )
+
+    print(f"Train:      {X_train.shape[0]} filas ({X_train.shape[0]/len(X)*100:.1f}%)")
+    print(f"Validación: {X_val.shape[0]} filas ({X_val.shape[0]/len(X)*100:.1f}%)")
+    print(f"Test:       {X_test.shape[0]} filas ({X_test.shape[0]/len(X)*100:.1f}%)")
+
+    return X_train, X_val, X_test, y_train, y_val, y_test, preprocessor, mlb
+
+
+# ── Ejecución directa ─────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    X_train, X_val, X_test, y_train, y_val, y_test, preprocessor, mlb = load_and_prepare()
+    print("\nClases detectadas:", mlb.classes_[:5], "...")
 
 '''
-
-df.drop(columns=["type_external"])
-
-df.to_csv("netflix_merged_intersection.csv")
-
-'''
-df = df[
-    [
-        "type_base",
-        "country",
-        "release_year",
-        "rating",
-        "duration",
-        "listed_in",
-        "imdb_score",
-        "imdb_votes",
-        "age_certification"
-    ]
-].copy()
-
-#Manejo de NaNs
-
-df = df.dropna(subset=["listed_in"])
-
-df["imdb_score"] = df["imdb_score"].fillna(df["imdb_score"].median())
-df["imdb_votes"] = df["imdb_votes"].fillna(0)
-df["country"] = df["country"].fillna("unkown")
-df["age_certification"] = df["age_certification"].fillna("unknown")
-
-df["duration_num"] = df["duration"].str.extract(r"(\d+)").astype(float)
-df.drop(columns=["duration"], inplace=True)
-
-#Target
-df["listed_in"] = (
-    df["listed_in"]
-    .str.lower()
-    .str.strip()
-    .str.split(",")
-)
-
-from sklearn.preprocessing import MultiLabelBinarizer
-
-mlb = MultiLabelBinarizer()
-y = mlb.fit_transform(df["listed_in"])
-
-#def X
-X = df.drop(columns=["listed_in"])
-
-#def categoricas y numéricas
-
-numeric_cols = [
-    "release_year",
-    "imdb_score",
-    "imdb_votes",
-    "duration_num"
-]
-
-categorical_cols = [
-    "type_base",
-    "rating",
-    "age_certification",
-    "country"
-]
-
-preprocessor = ColumnTransformer(
-    transformers=[
-        ("num", StandardScaler(), numeric_cols),
-        ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_cols)
-    ]
-)
-
-
 #diagramas
 os.makedirs("eda_outputs", exist_ok=True)
 
@@ -287,5 +340,5 @@ plt.title("UMAP Projection")
 plt.savefig("eda_outputs/umap_projection.png")
 plt.close()
 
-
+'''
 
