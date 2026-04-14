@@ -6,7 +6,7 @@ Exploración de algoritmos de clustering no supervisado (**KMeans** y **DBSCAN**
 
 ## Archivos
 
-### `kmeans_fire.py`
+### `Ver_etiquetas_kmeans_peque.py`
 Clustering con **KMeans (k=2)** sobre `dataset_sintetico_FIRE_UdeA.csv`.
 
 **Flujo:**
@@ -20,7 +20,7 @@ Clustering con **KMeans (k=2)** sobre `dataset_sintetico_FIRE_UdeA.csv`.
 
 ---
 
-### `dbscan_3d.py`
+### `dbscan_peque.py`
 Clustering con **DBSCAN** sobre `dataset_sintetico_FIRE_UdeA.csv` con visualización en **3 dimensiones**.
 
 **Parámetros clave:** `eps=1.5`, `min_samples=5`
@@ -48,15 +48,6 @@ Clustering con **DBSCAN** sobre `dataset_sintetico_FIRE_UdeA_realista.csv`, usan
 3. Reducción a 2 componentes con PCA y visualización
 
 **Salida:** `dbscan_dataset_FIRE_realista.png`
-
----
-
-## Dataset
-
-| Archivo | Descripción |
-|---|---|
-| `dataset_sintetico_FIRE_UdeA.csv` | Dataset base con features financieras y columna `label` |
-| `dataset_sintetico_FIRE_UdeA_realista.csv` | Versión extendida con columnas `label`, `anio`, `unidad` y features adicionales |
 
 ---
 
